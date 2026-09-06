@@ -490,6 +490,8 @@ export class FrigateModernHassCard extends HTMLElement {
   _teardownGridGo2rtc() {
     (this._gridPlayers || []).forEach(p => this._stopGo2rtcPlayer(p));
     this._gridPlayers = [];
+    (this._gridRetryTimers || []).forEach(t => clearTimeout(t));
+    this._gridRetryTimers = [];
   }
   // Hiding the grid does not stop it. Every tile holds its own connection, so a
   // hidden grid of seven cameras keeps seven streams running while the single
@@ -754,7 +756,8 @@ export class FrigateModernHassCard extends HTMLElement {
     const clientId = cache?.clientId, cam = cache?.cam;
     const giveUp = () => {
       if (this._gridToken !== token || !slot.isConnected) return;
-      this._mountGridHaStream(slot, entity);
+      if (!slot.querySelector('ha-camera-stream')) this._mountGridHaStream(slot, entity);
+      this._scheduleGridRetry(slot, entity, token);
     };
     if (!clientId || !cam) { giveUp(); return; }
 
@@ -763,7 +766,11 @@ export class FrigateModernHassCard extends HTMLElement {
 
     const player = document.createElement('frigate-go2rtc-player');
     player.style.cssText = 'width:100%;height:100%;display:block;pointer-events:none';
-    slot.insertAdjacentElement('afterbegin', player);
+    // On a retry the HA stream is still showing; connect behind it and swap
+    // only once this tile actually plays, so the picture never goes blank.
+    const stopgap = slot.querySelector('ha-camera-stream');
+    if (stopgap) stopgap.insertAdjacentElement('afterend', player);
+    else slot.insertAdjacentElement('afterbegin', player);
     if (player.video) {
       player.video.controls = false;
       player.video.muted = true;
@@ -784,7 +791,7 @@ export class FrigateModernHassCard extends HTMLElement {
       const poll = setInterval(() => {
         const elapsed = Date.now() - started;
         const open = player.wsState === WebSocket.OPEN || player.pcState === WebSocket.OPEN;
-        if ((!open && elapsed > 4000) || elapsed > 15000) finish(false);
+        if ((!open && elapsed > 8000) || elapsed > 15000) finish(false);
       }, 250);
     });
     if (this._gridToken !== token || !slot.isConnected || !player.isConnected) {
@@ -795,12 +802,29 @@ export class FrigateModernHassCard extends HTMLElement {
     this._dbg('grid tile', entity, ok ? 'playing' : 'gave up', { ws: player.wsState, pc: player.pcState });
     if (ok) {
       slot.querySelector('.ph')?.remove();
+      slot.querySelector('ha-camera-stream')?.remove();
+      slot._fmhcRetries = 0;
       this._startGo2rtcWatchdog(player, giveUp);
       return;
     }
     this._stopGo2rtcPlayer(player);
     this._gridPlayers = (this._gridPlayers || []).filter(p => p !== player);
     giveUp();
+  }
+
+  // The HA stream a tile falls back to is a stopgap, not a destination: it
+  // used to be permanent until the whole grid was rebuilt, so one slow start
+  // left that camera on the heavier path for the rest of the session. Keep
+  // trying go2rtc, backing off from 30 s to 2 min between attempts.
+  _scheduleGridRetry(slot, entity, token) {
+    const n = slot._fmhcRetries = (slot._fmhcRetries || 0) + 1;
+    const delay = Math.min(30000 * Math.pow(2, n - 1), 120000);
+    clearTimeout(slot._fmhcRetryTimer);
+    slot._fmhcRetryTimer = setTimeout(() => {
+      if (this._gridToken !== token || !slot.isConnected) return;
+      this._mountGridGo2rtc(slot, entity);
+    }, delay);
+    (this._gridRetryTimers = this._gridRetryTimers || []).push(slot._fmhcRetryTimer);
   }
 
   // ── custom stream controls ────────────────────────────────
