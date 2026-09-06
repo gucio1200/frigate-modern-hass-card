@@ -444,10 +444,12 @@ export class FrigateModernHassCard extends HTMLElement {
   // simply unavailable.
   _startGo2rtcWatchdog(player, onGiveUp) {
     // Keyframes arrive every second on these streams, so four seconds without
-    // a new frame is a dead stream, not a slow one.
-    const CHECK_MS = 1000, STALL_MS = 4000, MAX_SOFT_RETRIES = 3;
+    // a new frame is a dead stream, not a slow one. A stream that has not shown
+    // its first frame yet is a different case: several tiles negotiating WebRTC
+    // at once can take longer than that, and restarting them only makes it worse.
+    const CHECK_MS = 1000, STALL_MS = 4000, CONNECT_MS = 12000, MAX_SOFT_RETRIES = 3;
     clearInterval(player._fmhcWatch);
-    let lastTime = -1, stalledMs = 0, retries = 0;
+    let lastTime = -1, stalledMs = 0, retries = 0, played = false;
     player._fmhcWatch = setInterval(() => {
       if (!player.isConnected) { clearInterval(player._fmhcWatch); return; }
       const v = player.video;
@@ -457,12 +459,14 @@ export class FrigateModernHassCard extends HTMLElement {
 
       const advancing = v.currentTime !== lastTime;
       lastTime = v.currentTime;
+      if (advancing && v.currentTime > 0) played = true;
       const noConnection = player.wsState === WebSocket.CLOSED && player.pcState === WebSocket.CLOSED;
       if (advancing && !noConnection) { stalledMs = 0; retries = 0; return; }
 
       stalledMs += CHECK_MS;
-      if (stalledMs < STALL_MS) return;
+      if (stalledMs < (played ? STALL_MS : CONNECT_MS)) return;
       stalledMs = 0;
+      played = false;
       retries++;
       if (retries <= MAX_SOFT_RETRIES) {
         console.warn('[frigate-modern-hass-card] go2rtc stream stalled, reconnecting', `(${retries}/${MAX_SOFT_RETRIES})`);
