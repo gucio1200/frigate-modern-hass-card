@@ -1208,12 +1208,36 @@ class FrigateModernHassCard extends HTMLElement {
 
   disconnectedCallback() {
     this._stopRotate();
-    if (this._refresh) clearInterval(this._refresh);
+    if (this._refresh) { clearInterval(this._refresh); this._refresh = null; }
     if (this._unsub) { try { this._unsub.then(u=>u&&u()); } catch(_) {} this._unsub=null; }
-    if (this._ro) this._ro.disconnect();
+    if (this._ro) { this._ro.disconnect(); this._ro = null; }
     this._revokeClipBlob();
     this._teardownGo2rtc();
     this._teardownGridGo2rtc();
+    // Everything above is gone now. Remember that, so a re-attach can bring it
+    // back; a card that never started has nothing to resume.
+    this._detached = this._started === true;
+  }
+
+  // Home Assistant keeps a view's elements around and re-attaches them when the
+  // user comes back to that view. By then disconnectedCallback has stopped every
+  // stream, timer and subscription, and nothing restarted them: the tiles stayed
+  // empty until a page reload. The first attach is not a resume; set hass starts
+  // the card then.
+  connectedCallback() {
+    if (!this._detached) return;
+    this._detached = false;
+    this._resume();
+  }
+
+  _resume() {
+    if (!this._config || !this._hass) return;
+    this._setupResizeObserver();
+    if (this._viewMode === 'grid') this._mountGrid();
+    else this._mountEngine();
+    // Events may have arrived while the card was away.
+    if (this._isNowWindow()) this._loadWindow(true);
+    this._startBackground();
   }
 
   // ── init ─────────────────────────────────────────────────
@@ -1233,6 +1257,12 @@ class FrigateModernHassCard extends HTMLElement {
     if (!startInGrid) await this._mountEngine();
     await this._loadWindow(true);
     this._loadCalendar();
+    this._startBackground();
+  }
+
+  // The event subscription and the timers. Shared by the first start and by a
+  // resume after the card was detached from the DOM, so they cannot drift apart.
+  _startBackground() {
     this._subscribe();
     this._refresh = setInterval(() => { if (this._isNowWindow()) this._loadWindow(true); }, this._config.refresh_seconds*1000);
     const shouldRotate = this._config.rotate_on_load || this._config.rotate_seconds > 0;
