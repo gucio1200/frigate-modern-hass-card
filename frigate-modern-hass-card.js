@@ -836,9 +836,21 @@ class VideoRTC extends HTMLElement {
         this.onmessage['mse'] = msg => {
             if (msg.type !== 'mse') return;
 
+            // With both transports started, WebRTC can win before this answer
+            // arrives; the video element has then been handed the peer stream and
+            // the MediaSource is detached. Adding a SourceBuffer to it throws an
+            // InvalidStateError from inside the socket handler, for nothing:
+            // onpcvideo is already closing this socket.
+            if (ms.readyState !== 'open') return;
+
             this.mseCodecs = msg.value;
 
-            const sb = ms.addSourceBuffer(msg.value);
+            let sb;
+            try {
+                sb = ms.addSourceBuffer(msg.value);
+            } catch (e) {
+                return;
+            }
             sb.mode = 'segments'; // segments or sequence
             sb.addEventListener('updateend', () => {
                 if (!sb.updating && bufLen > 0) {
@@ -1525,7 +1537,9 @@ class FrigateModernHassCard extends HTMLElement {
   // entirely — which brings the HLS fallback back into play if go2rtc is
   // simply unavailable.
   _startGo2rtcWatchdog(player, onGiveUp) {
-    const CHECK_MS = 2000, STALL_MS = 8000, MAX_SOFT_RETRIES = 3;
+    // Keyframes arrive every second on these streams, so four seconds without
+    // a new frame is a dead stream, not a slow one.
+    const CHECK_MS = 1000, STALL_MS = 4000, MAX_SOFT_RETRIES = 3;
     clearInterval(player._fmhcWatch);
     let lastTime = -1, stalledMs = 0, retries = 0;
     player._fmhcWatch = setInterval(() => {

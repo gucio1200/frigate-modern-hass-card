@@ -443,7 +443,9 @@ export class FrigateModernHassCard extends HTMLElement {
   // entirely — which brings the HLS fallback back into play if go2rtc is
   // simply unavailable.
   _startGo2rtcWatchdog(player, onGiveUp) {
-    const CHECK_MS = 2000, STALL_MS = 8000, MAX_SOFT_RETRIES = 3;
+    // Keyframes arrive every second on these streams, so four seconds without
+    // a new frame is a dead stream, not a slow one.
+    const CHECK_MS = 1000, STALL_MS = 4000, MAX_SOFT_RETRIES = 3;
     clearInterval(player._fmhcWatch);
     let lastTime = -1, stalledMs = 0, retries = 0;
     player._fmhcWatch = setInterval(() => {
