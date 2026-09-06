@@ -472,6 +472,10 @@ class VideoRTC extends HTMLElement {
             }
             sb.mode = 'segments'; // segments or sequence
             sb.addEventListener('updateend', () => {
+                // A pending update can complete after WebRTC took the element
+                // over; the MediaSource is detached then and every call below
+                // would throw.
+                if (ms.readyState !== 'open') return;
                 if (!sb.updating && bufLen > 0) {
                     try {
                         const data = buf.slice(0, bufLen);
@@ -536,8 +540,28 @@ class VideoRTC extends HTMLElement {
                     .map(tr => tr.receiver.track);
                 /** @type {HTMLVideoElement} */
                 const video2 = document.createElement('video');
-                video2.addEventListener('loadeddata', () => this.onpcvideo(video2), {once: true});
+                let decided = false;
+                video2.addEventListener('loadeddata', () => {
+                    decided = true;
+                    this.onpcvideo(video2);
+                }, {once: true});
                 video2.srcObject = new MediaStream(tracks);
+                // Firefox does not decode a detached element that is not playing,
+                // so loadeddata never came and the hand-off never happened: the
+                // connection stayed up next to MSE, pulling the stream twice.
+                video2.muted = true;
+                video2.playsInline = true;
+                video2.play().catch(() => {});
+                // Still no frame after this long means this browser will not
+                // decode the WebRTC stream. Drop the connection and leave
+                // whatever is playing (usually MSE) alone.
+                setTimeout(() => {
+                    if (decided || this.pc !== pc) return;
+                    video2.srcObject = null;
+                    pc.close();
+                    this.pcState = WebSocket.CLOSED;
+                    this.pc = null;
+                }, 10000);
             } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
                 pc.close(); // stop next events
 
