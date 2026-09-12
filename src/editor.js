@@ -126,6 +126,7 @@ export class FrigateModernHassCardEditor extends HTMLElement {
           <small class="hint">The numbers match the tile numbers beside each camera above. A layout sets the columns and the tile sizes together.</small>
           <div style="border-top:1px solid var(--divider-color);margin-top:10px;padding-top:8px">
             <label class="chk-lbl"><input type="checkbox" name="stack_on_mobile" id="stack_on_mobile" ${this._config?.stack_on_mobile!==false?'checked':''}> On a phone, stack the cameras one per row</label>
+            <label class="chk-lbl"><input type="checkbox" name="grid_fit" id="grid_fit" ${this._config?.grid_fit==='cover'?'checked':''}> Fill each tile with the picture (crops the edges instead of showing bars)</label>
             <small class="hint" style="display:block;margin-top:4px">Any layout leaves the cameras too small to see on a phone, so this overrides it there. Turn it off to keep the grid on a phone too, for two cameras side by side or a small overview.</small>
           </div>
         </div>
@@ -374,6 +375,7 @@ export class FrigateModernHassCardEditor extends HTMLElement {
     const gc = this.querySelector('input[name="grid_columns"]:checked')?.value || 'auto';
     c.grid_columns = gc === 'auto' ? 'auto' : Number(gc);
     c.stack_on_mobile = this.querySelector('#stack_on_mobile')?.checked !== false;
+    if (this.querySelector('#grid_fit')?.checked) c.grid_fit = 'cover'; else delete c.grid_fit;
     c.live_provider = this.querySelector('input[name="live_provider"]:checked')?.value === 'go2rtc' ? 'go2rtc' : 'hls';
     c.go2rtc_mode = this.querySelector('input[name="go2rtc_mode"]:checked')?.value || 'mse';
     this._config=c; this._dispatch();

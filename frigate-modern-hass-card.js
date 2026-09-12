@@ -194,6 +194,15 @@ const STYLES = `
   .grid-slot.placeholder{background:#06090f;cursor:default;}
   .grid-slot.placeholder:hover{box-shadow:none;}
   .grid-slot ha-camera-stream,.grid-slot frigate-go2rtc-player{width:100%;height:100%;display:block;}
+  /* grid_fit: cover. The player keeps its <video> in the light DOM, so the
+     card's own stylesheet reaches it; the HA stopgap stream stays letterboxed. */
+  .cam-grid.fit-cover .grid-slot frigate-go2rtc-player video,.cam-grid.fit-cover .grid-slot img{object-fit:cover;}
+  /* With cover the rows follow 16:9 tile boxes instead of the tallest stream, and
+     the grid grows as tall as it needs (stream_height does not cap it here). */
+  .card.grid-mode .cam-grid.fit-cover.multi-row:not(.stacked){max-height:none;grid-template-rows:none;grid-auto-rows:auto;}
+  .card.grid-mode .cam-grid.fit-cover.multi-row:not(.stacked) .grid-slot{aspect-ratio:var(--tile-ar,16/9);}
+  .card.mobile .cam-grid.fit-cover.multi-row:not(.stacked){max-height:none;}
+  .card.mobile .cam-grid.fit-cover.multi-row:not(.stacked) .grid-slot{aspect-ratio:var(--tile-ar,16/9);}
   .grid-close-btn{position:absolute;top:6px;right:6px;width:22px;height:22px;background:rgba(0,0,0,.75);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:50%;font-size:11px;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;line-height:1;}
   .grid-close-btn:hover{background:rgba(239,68,68,.7);}
   /* per-slot fullscreen button — appears on hover, bottom-right */
@@ -1194,6 +1203,9 @@ class FrigateModernHassCard extends HTMLElement {
       // it stacks by default. Off is for the deliberate case: two cameras side
       // by side, or a small grid as an overview.
       stack_on_mobile: config.stack_on_mobile !== false,
+      // How a tile shows a stream whose shape differs from the tile: 'contain'
+      // letterboxes (dark bars), 'cover' fills the tile and crops the edges.
+      grid_fit: config.grid_fit === 'cover' ? 'cover' : 'contain',
       // Escape hatch for the width at which a column is dropped. Not in the
       // editor: the stacking question is the one people actually have, and this
       // is the answer to a rarer one.
@@ -1806,7 +1818,7 @@ class FrigateModernHassCard extends HTMLElement {
     const cells = spans.reduce((sum, sp) => sum + sp.cols * sp.rows, 0);
     const rows = Math.max(1, Math.ceil(cells / cols));
     const slots = cols * rows;       // leftover cells become placeholders
-    grid.className = `cam-grid cams-${n}${rows > 1 ? ' multi-row' : ''}${cols === 1 ? ' stacked' : ''}`;
+    grid.className = `cam-grid cams-${n}${rows > 1 ? ' multi-row' : ''}${cols === 1 ? ' stacked' : ''}${this._config.grid_fit === 'cover' ? ' fit-cover' : ''}`;
     grid.style.setProperty('--grid-cols', cols);
     grid.style.setProperty('--grid-rows', rows);
     this._gridCols = cols;
@@ -1827,6 +1839,9 @@ class FrigateModernHassCard extends HTMLElement {
         const sp = spans[i];
         if (sp.cols > 1) slot.style.gridColumn = `span ${sp.cols}`;
         if (sp.rows > 1) slot.style.gridRow = `span ${sp.rows}`;
+        // In grid_fit: cover mode every tile keeps a 16:9 box scaled by its span,
+        // so one odd-shaped stream (a 4:3 doorbell) cannot stretch the whole row.
+        slot.style.setProperty('--tile-ar', `${16 * sp.cols}/${9 * sp.rows}`);
         const c = this._config.cameras[i];
         const name = cap(camDisplayName(c));
         // stream — go2rtc when configured (one WebSocket per tile is far
@@ -3175,6 +3190,7 @@ class FrigateModernHassCardEditor extends HTMLElement {
           <small class="hint">The numbers match the tile numbers beside each camera above. A layout sets the columns and the tile sizes together.</small>
           <div style="border-top:1px solid var(--divider-color);margin-top:10px;padding-top:8px">
             <label class="chk-lbl"><input type="checkbox" name="stack_on_mobile" id="stack_on_mobile" ${this._config?.stack_on_mobile!==false?'checked':''}> On a phone, stack the cameras one per row</label>
+            <label class="chk-lbl"><input type="checkbox" name="grid_fit" id="grid_fit" ${this._config?.grid_fit==='cover'?'checked':''}> Fill each tile with the picture (crops the edges instead of showing bars)</label>
             <small class="hint" style="display:block;margin-top:4px">Any layout leaves the cameras too small to see on a phone, so this overrides it there. Turn it off to keep the grid on a phone too, for two cameras side by side or a small overview.</small>
           </div>
         </div>
@@ -3422,6 +3438,7 @@ class FrigateModernHassCardEditor extends HTMLElement {
     const gc = this.querySelector('input[name="grid_columns"]:checked')?.value || 'auto';
     c.grid_columns = gc === 'auto' ? 'auto' : Number(gc);
     c.stack_on_mobile = this.querySelector('#stack_on_mobile')?.checked !== false;
+    if (this.querySelector('#grid_fit')?.checked) c.grid_fit = 'cover'; else delete c.grid_fit;
     c.live_provider = this.querySelector('input[name="live_provider"]:checked')?.value === 'go2rtc' ? 'go2rtc' : 'hls';
     c.go2rtc_mode = this.querySelector('input[name="go2rtc_mode"]:checked')?.value || 'mse';
     this._config=c; this._dispatch();

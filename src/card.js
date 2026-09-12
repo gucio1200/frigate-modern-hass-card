@@ -76,6 +76,9 @@ export class FrigateModernHassCard extends HTMLElement {
       // it stacks by default. Off is for the deliberate case: two cameras side
       // by side, or a small grid as an overview.
       stack_on_mobile: config.stack_on_mobile !== false,
+      // How a tile shows a stream whose shape differs from the tile: 'contain'
+      // letterboxes (dark bars), 'cover' fills the tile and crops the edges.
+      grid_fit: config.grid_fit === 'cover' ? 'cover' : 'contain',
       // Escape hatch for the width at which a column is dropped. Not in the
       // editor: the stacking question is the one people actually have, and this
       // is the answer to a rarer one.
@@ -688,7 +691,7 @@ export class FrigateModernHassCard extends HTMLElement {
     const cells = spans.reduce((sum, sp) => sum + sp.cols * sp.rows, 0);
     const rows = Math.max(1, Math.ceil(cells / cols));
     const slots = cols * rows;       // leftover cells become placeholders
-    grid.className = `cam-grid cams-${n}${rows > 1 ? ' multi-row' : ''}${cols === 1 ? ' stacked' : ''}`;
+    grid.className = `cam-grid cams-${n}${rows > 1 ? ' multi-row' : ''}${cols === 1 ? ' stacked' : ''}${this._config.grid_fit === 'cover' ? ' fit-cover' : ''}`;
     grid.style.setProperty('--grid-cols', cols);
     grid.style.setProperty('--grid-rows', rows);
     this._gridCols = cols;
@@ -709,6 +712,9 @@ export class FrigateModernHassCard extends HTMLElement {
         const sp = spans[i];
         if (sp.cols > 1) slot.style.gridColumn = `span ${sp.cols}`;
         if (sp.rows > 1) slot.style.gridRow = `span ${sp.rows}`;
+        // In grid_fit: cover mode every tile keeps a 16:9 box scaled by its span,
+        // so one odd-shaped stream (a 4:3 doorbell) cannot stretch the whole row.
+        slot.style.setProperty('--tile-ar', `${16 * sp.cols}/${9 * sp.rows}`);
         const c = this._config.cameras[i];
         const name = cap(camDisplayName(c));
         // stream — go2rtc when configured (one WebSocket per tile is far

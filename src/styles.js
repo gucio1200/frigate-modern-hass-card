@@ -102,6 +102,15 @@ export const STYLES = `
   .grid-slot.placeholder{background:#06090f;cursor:default;}
   .grid-slot.placeholder:hover{box-shadow:none;}
   .grid-slot ha-camera-stream,.grid-slot frigate-go2rtc-player{width:100%;height:100%;display:block;}
+  /* grid_fit: cover. The player keeps its <video> in the light DOM, so the
+     card's own stylesheet reaches it; the HA stopgap stream stays letterboxed. */
+  .cam-grid.fit-cover .grid-slot frigate-go2rtc-player video,.cam-grid.fit-cover .grid-slot img{object-fit:cover;}
+  /* With cover the rows follow 16:9 tile boxes instead of the tallest stream, and
+     the grid grows as tall as it needs (stream_height does not cap it here). */
+  .card.grid-mode .cam-grid.fit-cover.multi-row:not(.stacked){max-height:none;grid-template-rows:none;grid-auto-rows:auto;}
+  .card.grid-mode .cam-grid.fit-cover.multi-row:not(.stacked) .grid-slot{aspect-ratio:var(--tile-ar,16/9);}
+  .card.mobile .cam-grid.fit-cover.multi-row:not(.stacked){max-height:none;}
+  .card.mobile .cam-grid.fit-cover.multi-row:not(.stacked) .grid-slot{aspect-ratio:var(--tile-ar,16/9);}
   .grid-close-btn{position:absolute;top:6px;right:6px;width:22px;height:22px;background:rgba(0,0,0,.75);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:50%;font-size:11px;cursor:pointer;z-index:10;display:flex;align-items:center;justify-content:center;line-height:1;}
   .grid-close-btn:hover{background:rgba(239,68,68,.7);}
   /* per-slot fullscreen button — appears on hover, bottom-right */
