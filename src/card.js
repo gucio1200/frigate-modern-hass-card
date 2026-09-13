@@ -132,6 +132,7 @@ export class FrigateModernHassCard extends HTMLElement {
     if (this._refresh) { clearInterval(this._refresh); this._refresh = null; }
     if (this._unsub) { try { this._unsub.then(u=>u&&u()); } catch(_) {} this._unsub=null; }
     if (this._ro) { this._ro.disconnect(); this._ro = null; }
+    if (this._onVisibility) { document.removeEventListener('visibilitychange', this._onVisibility); this._onVisibility = null; }
     this._revokeClipBlob();
     this._teardownGo2rtc();
     this._teardownGridGo2rtc();
@@ -185,6 +186,10 @@ export class FrigateModernHassCard extends HTMLElement {
   // resume after the card was detached from the DOM, so they cannot drift apart.
   _startBackground() {
     this._subscribe();
+    if (!this._onVisibility) {
+      this._onVisibility = () => this._retryStopgapTilesNow();
+      document.addEventListener('visibilitychange', this._onVisibility);
+    }
     this._refresh = setInterval(() => { if (this._isNowWindow()) this._loadWindow(true); }, this._config.refresh_seconds*1000);
     const shouldRotate = this._config.rotate_on_load || this._config.rotate_seconds > 0;
     if (shouldRotate && this._config.cameras.length > 1) this._startRotate();
@@ -821,16 +826,36 @@ export class FrigateModernHassCard extends HTMLElement {
   // The HA stream a tile falls back to is a stopgap, not a destination: it
   // used to be permanent until the whole grid was rebuilt, so one slow start
   // left that camera on the heavier path for the rest of the session. Keep
-  // trying go2rtc, backing off from 30 s to 2 min between attempts.
+  // trying go2rtc, backing off from 5 s to 30 s between attempts. The old
+  // 30 s to 2 min schedule left a wall tablet black for minutes after every
+  // Frigate restart or Wi-Fi blip.
   _scheduleGridRetry(slot, entity, token) {
     const n = slot._fmhcRetries = (slot._fmhcRetries || 0) + 1;
-    const delay = Math.min(30000 * Math.pow(2, n - 1), 120000);
+    const delay = Math.min(5000 * Math.pow(2, n - 1), 30000);
     clearTimeout(slot._fmhcRetryTimer);
+    slot._fmhcRetry = { entity, token };
     slot._fmhcRetryTimer = setTimeout(() => {
+      slot._fmhcRetryTimer = null;
       if (this._gridToken !== token || !slot.isConnected) return;
       this._mountGridGo2rtc(slot, entity);
     }, delay);
     (this._gridRetryTimers = this._gridRetryTimers || []).push(slot._fmhcRetryTimer);
+  }
+  // A screen that comes back on (a wall tablet after its screen-off timer)
+  // should not wait out a retry timer: every tile still sitting on the HA
+  // stopgap gets its go2rtc attempt right away, staggered so six WebRTC
+  // negotiations do not start in the same instant.
+  _retryStopgapTilesNow() {
+    if (document.hidden || this._viewMode !== 'grid') return;
+    const slots = [...(this.shadowRoot?.querySelectorAll('.grid-slot') || [])].filter(s => s._fmhcRetryTimer && s._fmhcRetry);
+    slots.forEach((slot, i) => {
+      clearTimeout(slot._fmhcRetryTimer); slot._fmhcRetryTimer = null;
+      const { entity, token } = slot._fmhcRetry;
+      setTimeout(() => {
+        if (this._gridToken !== token || !slot.isConnected || slot._fmhcRetryTimer) return;
+        this._mountGridGo2rtc(slot, entity);
+      }, 300 * i);
+    });
   }
 
   // ── custom stream controls ────────────────────────────────
