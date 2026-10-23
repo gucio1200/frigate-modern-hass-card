@@ -1551,7 +1551,8 @@ class FrigateModernHassCard extends HTMLElement {
     this._teardownGo2rtc();
     return result;
   }
-  // Candidate proxy paths, newest first. Once one has worked we keep using it,
+  // Candidate proxy paths. The mse route goes first because Frigate 0.18 no
+  // longer serves /api/go2rtc/api/ws. Once one has worked we keep using it,
   // so the grid doesn't have to rediscover it per camera.
   _go2rtcPaths(clientId, cam) {
     const query = `?src=${encodeURIComponent(cam)}`;
@@ -1560,7 +1561,7 @@ class FrigateModernHassCard extends HTMLElement {
       : `/api/frigate/${clientId}/mse/api/ws${query}`;
     const known = this._go2rtcPath?.includes('/go2rtc/ws/') ? 'new'
                 : this._go2rtcPath ? 'old' : null;
-    return known ? [build(known)] : [build('new'), build('old')];
+    return known ? [build(known)] : [build('old'), build('new')];
   }
   _applyGo2rtcMode(player) {
     if (this._config.go2rtc_mode === 'webrtc') player.mode = 'webrtc';
