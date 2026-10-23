@@ -197,6 +197,40 @@ const STYLES = `
   /* grid_fit: cover. The player keeps its <video> in the light DOM, so the
      card's own stylesheet reaches it; the HA stopgap stream stays letterboxed. */
   .cam-grid.fit-cover .grid-slot frigate-go2rtc-player video,.cam-grid.fit-cover .grid-slot img{object-fit:cover;}
+  /* large_controls: wall-tablet sized touch targets (about 1.5x). */
+  .card.large-controls .cam-tab,.card.large-controls .pill,.card.large-controls .chip{font-size:16px;padding:9px 16px;border-radius:22px;gap:7px;}
+  .card.large-controls .btn,.card.large-controls .rec-dl-btn{font-size:16px;padding:9px 16px;}
+  /* Every button in the stream bar and timeline tools is the same 44 px tall as
+     the grid/rotate buttons, icon-only ones are square. */
+  .card.large-controls .tool{height:44px;min-width:44px;padding:0 12px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;}
+  .card.large-controls .tool svg{width:22px;height:22px;}
+  /* The jump-to-now button is a text glyph, not an svg: size it like the icons. */
+  .card.large-controls #now-btn{font-size:26px;line-height:1;}
+  .card.large-controls .tool-txt{font-size:16px;gap:8px;padding:0 16px;}
+  .card.large-controls .stream-ctrl-bar,.card.large-controls .tl-tools{gap:8px;}
+  /* Timeline: a taller track with fatter event marks, readable labels and legend. */
+  .card.large-controls .tl-track{height:48px;border-radius:8px;}
+  .card.large-controls .t-ev{width:7px;height:32px;border-radius:4px;} .card.large-controls .t-ev:hover{width:9px;}
+  .card.large-controls .tl-now{width:3px;}
+  .card.large-controls .tl-labels{margin-top:6px;} .card.large-controls .tl-labels span{font-size:14px;}
+  .card.large-controls .legend{gap:16px;margin-top:10px;}
+  .card.large-controls .lg{font-size:15px;gap:7px;} .card.large-controls .lg i{width:12px;height:12px;border-radius:3px;}
+  .card.large-controls .tl-sec{padding:12px 14px;} .card.large-controls .tl-head{margin-bottom:8px;}
+  .card.large-controls .tabs{gap:8px;padding:10px 12px;}
+  .card.large-controls .cam-tabs{gap:8px;}
+  .card.large-controls .cam-switcher{padding:8px 12px;}
+  .card.large-controls .cam-rotate,.card.large-controls .cam-grid-btn{width:44px;height:44px;border-radius:10px;}
+  .card.large-controls .cam-rotate svg,.card.large-controls .cam-grid-btn svg{width:22px;height:22px;}
+  .card.large-controls .ico,.card.large-controls .rec-pp-btn{width:40px;height:40px;}
+  .card.large-controls .ico svg{width:20px;height:20px;}
+  .card.large-controls .grid-fs-btn,.card.large-controls .grid-close-btn{width:40px;height:40px;bottom:10px;right:10px;font-size:16px;opacity:1;}
+  .card.large-controls .grid-close-btn{top:10px;bottom:auto;}
+  .card.large-controls .grid-fs-btn svg{width:20px;height:20px;}
+  .card.large-controls .grid-label{font-size:14px;padding:3px 10px;bottom:8px;left:10px;}
+  .card.large-controls .browse-toggle{padding:14px 16px;font-size:15px;}
+  .card.large-controls .cday{font-size:14px;padding:8px 0;}
+  .card.large-controls .cal-head b{font-size:15px;}
+  .card.large-controls .ec,.card.large-controls .rec,.card.large-controls .rev{padding:12px 14px;}
   /* With cover the rows follow 16:9 tile boxes instead of the tallest stream, and
      the grid grows as tall as it needs (stream_height does not cap it here). */
   .card.grid-mode .cam-grid.fit-cover.multi-row:not(.stacked){max-height:none;grid-template-rows:none;grid-auto-rows:auto;}
@@ -1206,6 +1240,9 @@ class FrigateModernHassCard extends HTMLElement {
       // How a tile shows a stream whose shape differs from the tile: 'contain'
       // letterboxes (dark bars), 'cover' fills the tile and crops the edges.
       grid_fit: config.grid_fit === 'cover' ? 'cover' : 'contain',
+      // Bigger touch targets for wall tablets: tabs, pills, chips and the small
+      // icon buttons grow about 1.5x. Off by default so desktops stay compact.
+      large_controls: config.large_controls === true,
       // Escape hatch for the width at which a column is dropped. Not in the
       // editor: the stacking question is the one people actually have, and this
       // is the answer to a rarer one.
@@ -2293,6 +2330,7 @@ class FrigateModernHassCard extends HTMLElement {
       theme = (haDark ?? osDark ?? true) ? 'dark' : 'light';
     }
     card.classList.toggle('theme-light', theme === 'light');
+    card.classList.toggle('large-controls', this._config.large_controls === true);
     card.classList.remove('theme-auto'); // resolved to light/dark above
 
     // Custom accent color — compute bg/border variants from hex
@@ -3217,6 +3255,7 @@ class FrigateModernHassCardEditor extends HTMLElement {
           <div style="border-top:1px solid var(--divider-color);margin-top:10px;padding-top:8px">
             <label class="chk-lbl"><input type="checkbox" name="stack_on_mobile" id="stack_on_mobile" ${this._config?.stack_on_mobile!==false?'checked':''}> On a phone, stack the cameras one per row</label>
             <label class="chk-lbl"><input type="checkbox" name="grid_fit" id="grid_fit" ${this._config?.grid_fit==='cover'?'checked':''}> Fill each tile with the picture (crops the edges instead of showing bars)</label>
+            <label class="chk-lbl"><input type="checkbox" name="large_controls" id="large_controls" ${this._config?.large_controls===true?'checked':''}> Large touch controls (wall tablets)</label>
             <small class="hint" style="display:block;margin-top:4px">Any layout leaves the cameras too small to see on a phone, so this overrides it there. Turn it off to keep the grid on a phone too, for two cameras side by side or a small overview.</small>
           </div>
         </div>
@@ -3465,6 +3504,7 @@ class FrigateModernHassCardEditor extends HTMLElement {
     c.grid_columns = gc === 'auto' ? 'auto' : Number(gc);
     c.stack_on_mobile = this.querySelector('#stack_on_mobile')?.checked !== false;
     if (this.querySelector('#grid_fit')?.checked) c.grid_fit = 'cover'; else delete c.grid_fit;
+    if (this.querySelector('#large_controls')?.checked) c.large_controls = true; else delete c.large_controls;
     c.live_provider = this.querySelector('input[name="live_provider"]:checked')?.value === 'go2rtc' ? 'go2rtc' : 'hls';
     c.go2rtc_mode = this.querySelector('input[name="go2rtc_mode"]:checked')?.value || 'mse';
     this._config=c; this._dispatch();

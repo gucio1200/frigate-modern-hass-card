@@ -105,6 +105,40 @@ export const STYLES = `
   /* grid_fit: cover. The player keeps its <video> in the light DOM, so the
      card's own stylesheet reaches it; the HA stopgap stream stays letterboxed. */
   .cam-grid.fit-cover .grid-slot frigate-go2rtc-player video,.cam-grid.fit-cover .grid-slot img{object-fit:cover;}
+  /* large_controls: wall-tablet sized touch targets (about 1.5x). */
+  .card.large-controls .cam-tab,.card.large-controls .pill,.card.large-controls .chip{font-size:16px;padding:9px 16px;border-radius:22px;gap:7px;}
+  .card.large-controls .btn,.card.large-controls .rec-dl-btn{font-size:16px;padding:9px 16px;}
+  /* Every button in the stream bar and timeline tools is the same 44 px tall as
+     the grid/rotate buttons, icon-only ones are square. */
+  .card.large-controls .tool{height:44px;min-width:44px;padding:0 12px;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;}
+  .card.large-controls .tool svg{width:22px;height:22px;}
+  /* The jump-to-now button is a text glyph, not an svg: size it like the icons. */
+  .card.large-controls #now-btn{font-size:26px;line-height:1;}
+  .card.large-controls .tool-txt{font-size:16px;gap:8px;padding:0 16px;}
+  .card.large-controls .stream-ctrl-bar,.card.large-controls .tl-tools{gap:8px;}
+  /* Timeline: a taller track with fatter event marks, readable labels and legend. */
+  .card.large-controls .tl-track{height:48px;border-radius:8px;}
+  .card.large-controls .t-ev{width:7px;height:32px;border-radius:4px;} .card.large-controls .t-ev:hover{width:9px;}
+  .card.large-controls .tl-now{width:3px;}
+  .card.large-controls .tl-labels{margin-top:6px;} .card.large-controls .tl-labels span{font-size:14px;}
+  .card.large-controls .legend{gap:16px;margin-top:10px;}
+  .card.large-controls .lg{font-size:15px;gap:7px;} .card.large-controls .lg i{width:12px;height:12px;border-radius:3px;}
+  .card.large-controls .tl-sec{padding:12px 14px;} .card.large-controls .tl-head{margin-bottom:8px;}
+  .card.large-controls .tabs{gap:8px;padding:10px 12px;}
+  .card.large-controls .cam-tabs{gap:8px;}
+  .card.large-controls .cam-switcher{padding:8px 12px;}
+  .card.large-controls .cam-rotate,.card.large-controls .cam-grid-btn{width:44px;height:44px;border-radius:10px;}
+  .card.large-controls .cam-rotate svg,.card.large-controls .cam-grid-btn svg{width:22px;height:22px;}
+  .card.large-controls .ico,.card.large-controls .rec-pp-btn{width:40px;height:40px;}
+  .card.large-controls .ico svg{width:20px;height:20px;}
+  .card.large-controls .grid-fs-btn,.card.large-controls .grid-close-btn{width:40px;height:40px;bottom:10px;right:10px;font-size:16px;opacity:1;}
+  .card.large-controls .grid-close-btn{top:10px;bottom:auto;}
+  .card.large-controls .grid-fs-btn svg{width:20px;height:20px;}
+  .card.large-controls .grid-label{font-size:14px;padding:3px 10px;bottom:8px;left:10px;}
+  .card.large-controls .browse-toggle{padding:14px 16px;font-size:15px;}
+  .card.large-controls .cday{font-size:14px;padding:8px 0;}
+  .card.large-controls .cal-head b{font-size:15px;}
+  .card.large-controls .ec,.card.large-controls .rec,.card.large-controls .rev{padding:12px 14px;}
   /* With cover the rows follow 16:9 tile boxes instead of the tallest stream, and
      the grid grows as tall as it needs (stream_height does not cap it here). */
   .card.grid-mode .cam-grid.fit-cover.multi-row:not(.stacked){max-height:none;grid-template-rows:none;grid-auto-rows:auto;}
