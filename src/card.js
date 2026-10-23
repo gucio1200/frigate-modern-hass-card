@@ -79,6 +79,9 @@ export class FrigateModernHassCard extends HTMLElement {
       // How a tile shows a stream whose shape differs from the tile: 'contain'
       // letterboxes (dark bars), 'cover' fills the tile and crops the edges.
       grid_fit: config.grid_fit === 'cover' ? 'cover' : 'contain',
+      // Bigger touch targets for wall tablets: tabs, pills, chips and the small
+      // icon buttons grow about 1.5x. Off by default so desktops stay compact.
+      large_controls: config.large_controls === true,
       // Escape hatch for the width at which a column is dropped. Not in the
       // editor: the stacking question is the one people actually have, and this
       // is the answer to a rarer one.
@@ -1166,6 +1169,7 @@ export class FrigateModernHassCard extends HTMLElement {
       theme = (haDark ?? osDark ?? true) ? 'dark' : 'light';
     }
     card.classList.toggle('theme-light', theme === 'light');
+    card.classList.toggle('large-controls', this._config.large_controls === true);
     card.classList.remove('theme-auto'); // resolved to light/dark above
 
     // Custom accent color — compute bg/border variants from hex
